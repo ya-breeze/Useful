@@ -1,0 +1,49 @@
+# Common tmux functions
+
+TMX_WINDOW="1"
+
+tmx_session () {
+	local NAME=$1
+	local KEYS=$2
+
+        tmux has-session -t $TMX_SESSION
+
+        if [ $? -eq 0 ]; then
+            echo "Session '$TMX_SESSION' already exists."
+            tmx_attach
+            exit 0;
+        fi
+
+	tmux new-session -d -s $TMX_SESSION
+
+	tmux rename-window -t $TMX_SESSION:$TMX_WINDOW $NAME
+	eval "tmux send-keys -t $TMX_SESSION:$TMX_WINDOW $KEYS"
+	TMX_WINDOW=$(( $TMX_WINDOW + 1 ))
+}
+
+tmx_attach_or_create () {
+        tmux has-session -t $TMX_SESSION
+
+        if [ $? -eq 0 ]; then
+            echo "Session '$TMX_SESSION' already exists."
+            tmx_attach
+            exit 0;
+        fi
+
+	tmux new-session -d -s $TMX_SESSION
+	exit 1
+}
+
+
+tmx_window () {
+        local NAME=$1
+        local KEYS=$2
+	tmux new-window -t $TMX_SESSION:$TMX_WINDOW -n $NAME
+	eval "tmux send-keys -t $TMX_SESSION:$TMX_WINDOW $KEYS"
+	TMX_WINDOW=$(( $TMX_WINDOW + 1 ))
+}
+
+tmx_attach () {
+	tmux select-window -t $TMX_SESSION:1
+	tmux -2 -u attach
+}

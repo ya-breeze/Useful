@@ -1,0 +1,12 @@
+#!/bin/bash
+
+if [ "x$1" == "x" ]
+then
+    echo "Usage: $0 <flac> <cue>"
+    exit 1
+fi
+
+mv "$1" qiwitemp.flac
+mv "$2" qiwitemp.cue
+cuebreakpoints "qiwitemp.cue" | shnsplit -o flac "qiwitemp.flac"
+cuetag "qiwitemp.cue" split-track*.flac

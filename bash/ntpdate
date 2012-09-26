@@ -1,0 +1,4 @@
+#!/bin/bash
+
+sudo /usr/sbin/ntpdate ntp21.imvp.ru ntp.vld.ru ntp.psn.ru >/dev/null 2>&1
+sudo /sbin/hwclock --systohc >/dev/null 2>&1

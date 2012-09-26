@@ -1,0 +1,23 @@
+#!/bin/bash
+
+clue_by_length()
+{
+	fullline=""
+	while read line1;
+	do
+		if [ "x$fullline" != "x" ];
+		then
+			fullline="$fullline "
+		fi
+		fullline="$fullline$line1"
+
+		if [ ${#line1} -lt 70 ];
+		then
+			echo "$fullline"
+			fullline=""
+		fi
+	done
+}
+
+
+clue_by_length

@@ -1,0 +1,137 @@
+#!/bin/sh -e
+#
+# Copyright (C) 2000-2005  Dmitry V. Levin <ldv@altlinux.org>
+#
+# Generates and adds changelog entry to rpm specfile.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+PROG="${0##*/}"
+
+#STAMPER=/usr/bin/stamp_spec
+STAMPER=/home/breeze/stuff/bin/stamp_spec
+RPM=/usr/bin/rpm
+RPMARG=
+ENTRY='- '
+NOCHECK=
+
+USAGE()
+{
+	[ "$1" = 0 ] || exec >&2
+	cat <<EOF
+add_changelog - generates and adds changelog entry to rpm specfile.
+
+add_changelog is free software, covered by the GNU General Public License.
+add_changelog comes with ABSOLUTELY NO WARRANTY, see license for details.
+
+Usage: $PROG [options] <specfile> [ <specfile>]*
+
+Valid options are:
+-s STAMPER, --stamper=STAMPER		path to STAMPER;
+-r RPM, --rpm=RPM                       path to RPM;
+-a args, --args=args                    arguments for RPM;
+-e entry, --entry=entry			changelog entry text;
+--nochange				do not check specfile versions;
+-h, --help                              show this text.
+
+Default path to STAMPER is STAMPER;
+Default path to RPM is $RPM;
+Default changelog entry is '$ENTRY'.
+EOF
+	[ -n "$1" ] && exit "$1" || exit
+}
+
+TEMP=`getopt -n $PROG -o a:e:r:s:h -l args:,entry:,rpm:,stamper:,nocheck,help -- "$@"` || USAGE
+eval set -- "$TEMP"
+
+while :; do
+	case "$1" in
+		-a|--args) shift; RPMARG="$1"; shift
+			;;
+		-e|--entry) shift; ENTRY="$1"; shift
+			;;
+		-r|--rpm) shift; RPM="$1"; shift
+			;;
+		-s|--stamper) shift; STAMPER="$1"; shift
+			;;
+		--nocheck) NOCHECK=1; shift
+			;;
+		-h|--help) USAGE 0
+			;;
+		--) shift; break
+			;;
+		*) echo "$PROG: unrecognized option: $1" >&2; exit 1
+			;;
+	esac
+done
+
+[ -n "$*" ] || USAGE
+
+EDFILE="$(mktemp -t "$PROG.XXXXXXXXXX")"
+
+exit_handler()
+{
+	local rc=$?
+	trap - EXIT
+	rm -f -- "$EDFILE"
+	exit $rc
+}
+
+trap exit_handler HUP PIPE INT QUIT TERM EXIT
+
+Quote()
+{
+	echo "$@" |sed -e 's/[\&;()<>!|{}$?*`"'\''[:space:]]/\\&/g' || return 1
+}
+
+exitcode=
+
+for spec in "$@"; do
+	if [ ! -r "$spec" ]; then
+		echo "$PROG: $spec: not available, skipping"
+		exitcode=1
+		continue
+	fi
+	if [ -z "$NOCHECK" ]; then
+		oldver=`$RPM -q --qf '%{CHANGELOGNAME}\n' --specfile "$spec" |sed -ne '/^(none)$/q;s/[^<]\+<[^>]\+> *\(.\+\)$/\1/pg'`
+		newver=`$RPM -q --qf '%|SERIAL?{%{SERIAL}:}|%{VERSION}-%{RELEASE}\n' --specfile "$spec" |head -1`
+		if [ "$oldver" = "$newver" ]; then
+			echo "$PROG: $spec: version \"$oldver\" unchanged, skipping"
+			exitcode=1
+			continue
+		fi
+	fi
+	cmd="$(Quote "$STAMPER") -r $(Quote "$RPM")"
+	[ -z "$RPMARG" ] || cmd="$cmd -a $(Quote "$RPMARG")"
+	cmd="$cmd $(Quote "$spec")"
+	if stamp="$(eval "$cmd")" && [ -n "$stamp" ]; then
+		grep -qs '^%changelog' "$spec" || cat << __EOF__ >>"$spec"
+
+%changelog
+__EOF__
+		cat << __EOF__EOF__EOF__ >"$EDFILE"
+/^%changelog/a
+$stamp
+$ENTRY
+
+.
+w
+__EOF__EOF__EOF__
+		ed - "$spec" <"$EDFILE"
+	fi
+done
+
+exit $exitcode

@@ -1,0 +1,112 @@
+#!/bin/sh
+#
+# Файл /etc/ppp/ppp-firewall - скрипт инициализации IP firewall for 2.4.x
+# Скрипт в основном взят из статьи Владимира Холманова "Использование
+# iptables на автономной dial-up машине"
+# (http://linux.yaroslavl.ru/Docum/Sec/iptables_dial-up.html)
+# Галынский Александр(shamus.gal@mtu-net.ru)
+#
+
+#
+# Сетевые интерфейсы
+#
+LO_IFACE="lo"
+INET_IFACE="ppp0"
+LOCAL_IFACE="vmnet1"
+IPTABLES="/sbin/iptables"
+
+#
+#Needed to initially load modules
+#
+#/sbin/depmod -a
+
+#
+# Правила по умолчанию для INPUT, FORWARD and OUTPUT цепей
+#
+$IPTABLES -P INPUT DROP
+$IPTABLES -P OUTPUT ACCEPT
+$IPTABLES -P FORWARD DROP
+
+#
+# Create separate chains for ICMP, TCP and UDP to traverce
+#
+$IPTABLES -N icmp_pck
+$IPTABLES -N tcp_pck
+$IPTABLES -N udp_pck
+
+#
+# Разрешающие правила для TCP соединений
+#
+$IPTABLES -N allowed
+$IPTABLES -A allowed -p TCP --syn -j ACCEPT
+$IPTABLES -A allowed -p TCP -m state --state ESTABLISHED,RELATED -j ACCEPT
+$IPTABLES -A allowed -p TCP -j DROP
+
+#
+# ICMP правила
+#
+$IPTABLES -A icmp_pck -p ICMP --icmp-type 0 -j ACCEPT
+$IPTABLES -A icmp_pck -p ICMP --icmp-type 3 -j ACCEPT
+#$IPTABLES -A icmp_pck -p ICMP --icmp-type 5 -j ACCEPT
+$IPTABLES -A icmp_pck -p ICMP --icmp-type 11 -j ACCEPT
+$IPTABLES -A icmp_pck -m limit --limit 2/minute --limit-burst 6 -j LOG --log-prefix "ICMP packet died: "
+$IPTABLES -A icmp_pck -p ICMP -j DROP
+
+#
+# TCP правила для инициализации входящих подключений
+# TODO Пока не определю список разрешенных портов - пусть приходят все
+#
+#$IPTABLES -A tcp_pck -p TCP --dport 22 -j allowed
+#$IPTABLES -A tcp_pck -p TCP --dport 113 -j allowed
+$IPTABLES -A tcp_pck -p TCP -j allowed
+
+#
+# UDP правила
+#
+$IPTABLES -A udp_pck -p UDP --source-port 53 -j ACCEPT
+$IPTABLES -A udp_pck -p UDP --source-port 123 -j ACCEPT
+$IPTABLES -A udp_pck -m limit --limit 3/minute --limit-burst 6 -j LOG --log-prefix "UDP packet died: "
+$IPTABLES -A udp_pck -p UDP -j DROP
+
+#
+# Входящие пакеты
+# Регистрируем все и удаляем только inet "хитрые" TCP пакеты
+#
+$IPTABLES -A INPUT -p tcp ! --syn -m state --state NEW -j LOG --log-prefix "New not syn:"
+$IPTABLES -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
+
+#
+# "Направляющие" правила для локальных и "перенаправляющие" для inet пакетов
+#
+$IPTABLES -A INPUT -p ICMP -i $LO_IFACE -j ACCEPT
+$IPTABLES -A INPUT -p ICMP -i $LOCAL_IFACE -j ACCEPT
+$IPTABLES -A INPUT -p ICMP -i $INET_IFACE -j icmp_pck
+$IPTABLES -A INPUT -p TCP -i $LO_IFACE -j ACCEPT
+$IPTABLES -A INPUT -p TCP -i $LOCAL_IFACE -j ACCEPT
+$IPTABLES -A INPUT -p TCP -i $INET_IFACE -j tcp_pck
+$IPTABLES -A INPUT -p UDP -i $LO_IFACE -j ACCEPT
+$IPTABLES -A INPUT -p UDP -i $LOCAL_IFACE -j ACCEPT
+$IPTABLES -A INPUT -p UDP -i $INET_IFACE -j udp_pck
+
+#
+# "Разрешающее" правило для входящих "установившихся" и "связанных"
+# соединений от Internet и внутренней сети
+# "Регистрирующее" правило для "неохваченных" пакетов
+#
+$IPTABLES -A INPUT -p TCP -i $INET_IFACE -m state --state ESTABLISHED,RELATED -j ACCEPT
+$IPTABLES -A INPUT -p TCP -i $LOCAL_IFACE -m state --state ESTABLISHED,RELATED -j ACCEPT
+$IPTABLES -A INPUT -m limit --limit 3/minute --limit-burst 6 -j LOG --log-level DEBUG --log-prefix "IP INPUT packet died: "
+
+
+#------------------------------------------
+exit 0
+# Разрешаем доступ к кэширующему DNS-серверу только с известных адресов
+/sbin/iptables -A INPUT -p udp -s 192.168.254.0/24 --dport domain -j ACCEPT
+/sbin/iptables -A INPUT -p tcp -s 192.168.254.0/24 --dport domain -j ACCEPT
+/sbin/iptables -A INPUT -p udp -s 127.0.0.1/32     --dport domain -j ACCEPT
+/sbin/iptables -A INPUT -p tcp -s 127.0.0.1/32     --dport domain -j ACCEPT
+/sbin/iptables -A INPUT -p udp                     --dport domain -j REJECT
+/sbin/iptables -A INPUT -p tcp                     --dport domain -j REJECT
+
+# Настройка правил фильтрации пакетов
+/sbin/iptables -t nat -A POSTROUTING -s 192.168.254.0/24 -d ! 192.168.254.0/24 -j MASQUERADE

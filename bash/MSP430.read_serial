@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mspdebug rf2500 exit
+stty 2400 -F /dev/ttyACM0
+cat /dev/ttyACM0

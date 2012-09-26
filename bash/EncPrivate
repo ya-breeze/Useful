@@ -1,0 +1,39 @@
+#! /bin/bash
+
+ROOT=
+/media/a5a5f460-e504-49fb-9fda-2f979b8d29a7/home/breeze/
+MOUNT=`mount | grep $HOME/EncPrivate`
+if [ "x$MOUNT" = "x" ];
+then
+	echo "Need mount"
+else
+	echo "Already mounted. Exiting."
+	exit 0
+fi
+
+export MAIN_DIALOG='
+ <vbox>
+  <entry invisible_char="x" visibility="false">
+    <variable>PASS</variable>
+  </entry>
+  <hbox>
+   <button ok></button>
+   <button cancel></button>
+  </hbox>
+ </vbox>
+'
+
+I=$IFS; IFS=""
+for STATEMENTS in  $(gtkdialog --program MAIN_DIALOG);
+do
+	eval $STATEMENTS
+done
+IFS=$I
+
+if [ "$EXIT" = "OK" ];
+then
+	echo "Mounting..."
+	echo $PASS | encfs -S $ROOT/.EncPrivate/ $ROOT/EncPrivate/
+else
+	echo "You pressed the Cancel button."
+fi

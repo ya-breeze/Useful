@@ -1,0 +1,25 @@
+#!/usr/bin/expect -f
+
+# now connect to remote UNIX box
+spawn ssh ras
+match_max 100000
+
+# Look for passwod prompt
+expect "*?assword:*"
+# Send password
+send -- "some_super_password_here\r"
+
+# send blank line (\r) to make sure we get back to gui
+send -- "\r"
+#expect eof
+expect "some_super_username_here"
+
+#send -- "ping localhost\r"
+#sleep 100000
+#expect eof
+
+set running 1
+while {$running} {
+	send -- "ping -c 5 localhost\r"
+	expect eof
+}

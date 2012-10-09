@@ -1,0 +1,14 @@
+SERVER
+=======
+mkdir provisioning.git; cd provisioning.git
+git --bare init; touch git-daemon-export-ok
+git repo-config core.sharedRepository true
+vi description
+
+
+CLIENT
+=======
+git clone ldap_user@git.teligent.ru:git/provisioning.git
+OR
+git remote add origin ldap_user@git.teligent.ru:git/provisioning.git
+git push --all -u

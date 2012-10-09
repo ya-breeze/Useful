@@ -1,0 +1,39 @@
+#!/bin/bash
+
+ADB="~/bin/android/android-sdk-linux_86/platform-tools/adb"
+DEST="/mnt/sdcard"
+
+check_connect() {
+    echo "Checking connection to android device..."
+    STATUS=`$ADB get-state | grep device`
+    if [ "x$STATUS" == "x" ]; then
+	echo "Can't find device - will try to restart adb in usb mode"
+	$ADB kill-server
+	sudo $ADB usb
+	STATUS=`$ADB get-state | grep device`
+	if [ "x$STATUS" == "x" ]; then
+	    echo "Unable to find device - try to check it"
+	    exit -2
+	fi
+    fi
+}
+
+if [ "x$2" == "x" ]; then
+    echo "Usage: $0 <destination on /mnt/sdcard> <files to be copied>"
+    exit -1
+fi
+
+check_connect
+
+# Create folder
+DEST="$DEST/$1"
+shift
+$ADB shell mkdir -p $DEST
+
+# Copy files
+while [ "x$1" != "x" ]; do
+    FILE=$1
+    echo "Coping $FILE..."
+    shift
+    $ADB push "$FILE" $DEST
+done

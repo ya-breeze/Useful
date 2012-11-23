@@ -1,0 +1,29 @@
+#!/bin/bash
+# Module for Log grabber
+# Created by Ilya Korolev <ilya.korolev@teligent.ru>
+#
+# This module tail /var/log/debug logfile to get exactly the desired part
+#
+# It expect to get env variables:
+# - DATADIR - the directory to put output file
+# - NICKNAME - the nickname for current host
+# - $1 - mode - start/stop/cancel
+# - $2 - pid of started script, if mode!=start
+
+LOGFILE="/var/log/debug"
+
+case $1 in
+	start )
+		(tailf $LOGFILE > $DATADIR/$NICKNAME-debug.log)&
+		echo $!
+	;;
+	stop )
+		kill $2
+	;;
+	cancel )
+		kill $2
+	;;
+	* )
+		echo "Usage: $0 <start | stop | cancel> [pid]"
+	;;
+esac

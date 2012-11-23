@@ -1,0 +1,31 @@
+#!/bin/bash
+# Module for Log grabber
+# Created by Ilya Korolev <ilya.korolev@teligent.ru>
+#
+# This module grabs traffic using tcpdump
+#
+# It expect to get env variables:
+# - DATADIR - the directory to put output file
+# - NICKNAME - the nickname for current host
+# - $1 - mode - start/stop/cancel
+# - $2 - pid of started script, if mode!=start
+
+FILE="$DATADIR/$NICKNAME-tcpdump.pcap"
+
+case $1 in
+	start )
+		(tcpdump -i any -s0 -w $FILE &>/dev/null)&
+		echo $!
+	;;
+	stop )
+echo stop $2 > /tmp/123
+		kill $2
+	;;
+	cancel )
+echo cancel $2 > /tmp/123
+		kill $2
+	;;
+	* )
+		echo "Usage: $0 <start | stop | cancel> [pid]"
+	;;
+esac

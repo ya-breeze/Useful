@@ -1,0 +1,63 @@
+Log grabber ver 0.0.3
+======================
+
+LG is a small bash script. It's goal is to simplify grabbing logs of any kind (via ssh) from group of remote servers.
+It can grab pcap, debug log etc. It's designed with having in mind:
+- modularity - one can add another grabbing module in several minutes
+- convenience - it try to be as comfortable to use, as possible )
+
+Typical usecase for LG is - you have several remote servers and you want to trace some events, SIP call for example.
+Since call is traversed through several hosts, you definetely want to get logs from all of them and only for the period of this call.
+So, you setup LG, start it and perform a call. That's all - you get a traces from all desired hosts.
+
+WARNING: LG works via ssh, so you should be able to connect manually to every remote server via ssh
+
+Features:
+======================
+- LG automatically ensures that it's possible to use password-less connection to remote servers
+- LG automatically copies up to date version of itself and modules to remote servers
+- LG sends keep-alive messages during the grabbing and automatically stops grabbing if client part has gone away - to prevent endless grabbing
+- in case of broken connection, LG gives ability to stop grabbing and download files
+- each grabbing has its own ID, so simultaneous grabbings are available
+
+How to use
+======================
+1. Write a config file with list of remote servers and desired modules to be used
+2. Start LG. It ensures that you have a password-less access to all servers. If you don't - LG will help you to copy you public key.
+   LG also ensures, that there is a up to date version of LG and modules on remote side
+3. Make a call
+4. Press CTRL+C in LG's console and wait for all logs to be downloaded
+5. PROFIT )
+
+1. Write a config file:
+Config file should declare a SERVERS variable in such format:
+SERVERS="<nickname>:<host:port>:<comma-separated list of required modules>[ ...]"
+
+For example
+SERVERS="
+	sipfe;root@192.168.64.133:22;tcpdump,sipfelog
+	sem1;root@192.168.64.131:22;tlglog,syslog
+	sem2;root@192.168.64.132:22;tlglog,syslog
+"
+
+WARNING: You MUST specify server's port, even if it's default one - 22
+
+Here you can see three remote servers: sipfe, sem1, sem2. On sipfe LG will use tcpdump and sipfelog modules, on both sem - tlglog and syslog
+
+2. Start LG. The most frequent case if to run all grabbing processes at once. In this case you need to start LG as:
+ ./grabber.sh <config file>
+
+There are some other options for other cases:
+- ./grabber.sh <config file> continue <session ID> - continue grabbing session with <session ID> after any error
+- ./grabber.sh <config file> stop <session ID>     - stop grabbing session with <session ID> (if it's not) and download grabbed files
+
+
+FAQ
+======================
+1) What if connection between client and server hosts was lost?
+In such case, LG on server will stop grabbing in a minute and resources will not be wasted. You can grab created files later
+
+
+Changelog:
+======================
+0.0.4 - first public version

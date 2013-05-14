@@ -4,13 +4,13 @@
 #
 DEBUG="1"
 
-VERSION="0.0.4"
+VERSION="0.0.5"
 DATAROOT="/tmp/grabber"
 SERVERPATH="/root/.grabber.sh"
 MODULEPATH="$SERVERPATH.modules"
 
 # timeout in seconds for keep-alive from client
-CACHETTL="60"
+CACHETTL="600"
 # timeout in seconds to send keep-alive
 SEND_KEEPALIVE="30"
 
@@ -122,6 +122,9 @@ function handle_daemon() {
 	# Waiting for interrupt
 	syslog "Waiting for interrupt - '$ID'"
 	while ! test -f stopreason; do
+		# To prevent bug, when directory is deleted and daemon is unabled to stop because stopfile is unreached - it's impossible
+		# to create file in deleted directory
+		cd $DATADIR || (syslog "Datadir is unavailable, force exit - $ID"; mkdir -p $DATADIR)
 		# Is user online?
 		# check timestamp of 'update' file - it should be touched at least minute ago
 		if [ -f $DATADIR/update ]; then
